@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Visual Iteration | 3D + LLM Workflow</title>
+    <style>
+        /* ================= 核心风格 DNA (同步自鼠标页面) ================= */
+        :root { --bg-color: #050505; --text-main: #f0f0f0; --text-muted: #888888; --accent: #ffffff; --card-bg: #111111; --font-main: 'Helvetica Neue', Inter, sans-serif; --brand-blue: #3b82f6; } 
+        * { margin: 0; padding: 0; box-sizing: border-box; } 
+        body { background-color: var(--bg-color); color: var(--text-main); font-family: var(--font-main); overflow-x: hidden; -webkit-font-smoothing: antialiased; } 
+        a { text-decoration: none; color: inherit; } 
+        
+        .back-nav { position: fixed; top: 40px; left: 5%; z-index: 100; display: flex; align-items: center; gap: 10px; color: #fff; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7; transition: 0.3s; mix-blend-mode: difference; }
+        .back-nav:hover { opacity: 1; transform: translateX(-5px); }
+
+        /* ================= 1. Hero Section (已修改为视频支持) ================= */
+        .hero-section { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; }
+        
+        /* 视频样式 */
+        .hero-video { 
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            min-width: 100%; 
+            min-height: 100%; 
+            width: auto; 
+            height: auto; 
+            object-fit: cover; 
+            opacity: 0.5; /* 调整透明度，让文字更清晰 */
+            z-index: 1;
+        }
+
+        .hero-content { position: relative; z-index: 10; text-align: center; }
+        .h-subtitle { font-size: 1rem; color: var(--brand-blue); letter-spacing: 5px; text-transform: uppercase; margin-bottom: 20px; }
+        .h-title { font-size: 4.5rem; font-weight: 700; line-height: 1.1; text-transform: uppercase; letter-spacing: -1px; }
+
+        /* ================= 2. Project Brief ================= */
+        .project-brief { padding: 120px 10%; max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 80px; }
+        .brief-meta { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 30px; }
+        .meta-item { margin-bottom: 30px; }
+        .meta-item h4 { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
+        .meta-item p { font-size: 1.1rem; color: #fff; }
+        .brief-text { font-size: 1.4rem; line-height: 1.8; color: #ccc; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 30px; text-align: justify; }
+
+        /* ================= 3. Content Sections & Sliders ================= */
+        .content-section { padding: 0 5% 100px; max-width: 1600px; margin: 0 auto; }
+        .section-header { margin-bottom: 40px; border-left: 3px solid var(--brand-blue); padding-left: 20px; }
+        .section-header h2 { font-size: 2.2rem; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* 对比组件样式 (同步自鼠标页面) */
+        .interactive-card { position: relative; width: 100%; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 40px; cursor: zoom-in; user-select: none; touch-action: pan-y; }
+        .slider-img { display: block; width: 100%; height: auto; pointer-events: none; }
+        .top-layer-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; overflow: hidden; transition: width 0.8s cubic-bezier(0.25, 1, 0.5, 1); border-right: 1px solid rgba(255,255,255,0.3); }
+        .top-layer-wrapper.dragging { transition: none; }
+        .top-layer { position: absolute; top: 0; left: 0; height: 100%; object-fit: cover; }
+        .slider-handle { position: absolute; top: 0; bottom: 0; left: 100%; width: 2px; background: rgba(255,255,255,0.3); z-index: 3; transform: translateX(-50%); transition: left 0.8s cubic-bezier(0.25, 1, 0.5, 1); display: flex; align-items: center; justify-content: center; }
+        .slider-handle.dragging { transition: none; }
+        .slider-btn { width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.2rem; }
+
+        /* 瀑布流网格 */
+        .matrix-masonry { column-count: 3; column-gap: 25px; }
+        .matrix-item { break-inside: avoid; margin-bottom: 25px; background: #111; border-radius: 10px; overflow: hidden; transition: 0.4s; border: 1px solid rgba(255,255,255,0.05); }
+        .matrix-item:hover { transform: translateY(-5px); border-color: var(--brand-blue); }
+        .matrix-img { width: 100%; height: auto; display: block; cursor: zoom-in; }
+        .matrix-info { padding: 15px 20px; background: #111; }
+        .matrix-info h3 { font-size: 0.75rem; color: var(--brand-blue); text-transform: uppercase; letter-spacing: 2px; }
+
+        .others-masonry { column-count: 4; column-gap: 15px; }
+        .other-card { break-inside: avoid; margin-bottom: 15px; border-radius: 6px; overflow: hidden; cursor: pointer; background: #111; }
+        .other-card img { width: 100%; height: auto; display: block; transition: 0.5s; opacity: 0.8; }
+        .other-card:hover img { transform: scale(1.05); opacity: 1; }
+
+        /* ================= 4. 结尾艺术字 ================= */
+        .thanks-section { padding: 150px 0; text-align: center; background: linear-gradient(to bottom, #050505, #000); }
+        .thanks-text { font-size: 5rem; font-weight: 800; background: linear-gradient(180deg, #fff 0%, #444 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -2px; opacity: 0.9; }
+
+        /* ================= 5. 下一页引流 & 页脚 (同步) ================= */
+        .next-project-banner { position: relative; width: 100vw; height: 60vh; display: block; overflow: hidden; border-top: 1px solid #222; }
+        .next-bg { position: absolute; inset: -20px; background: url('https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E9%94%AE%E7%9B%98/%E9%94%AE%E7%9B%98extra5.png') center/cover; filter: brightness(0.4) blur(5px); transition: 0.6s; }
+        .next-project-banner:hover .next-bg { filter: brightness(0.7) blur(0px); transform: scale(1.02); }
+        .next-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; }
+        .next-label { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 15px; }
+        .next-title { font-size: 3.5rem; color: #fff; font-weight: bold; }
+        .next-title span { color: var(--brand-blue); }
+
+        footer { padding: 80px 10% 40px; background: #000; border-top: 1px solid #111; }
+        .footer-cta { text-align: center; margin-bottom: 60px; }
+        .footer-cta h2 { font-size: 2.5rem; color: #fff; margin-bottom: 15px; }
+        .footer-cta p { color: var(--text-muted); font-size: 1.1rem; }
+        .footer-contact-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; margin-bottom: 60px; }
+        .footer-card { background: #0a0a0a; border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 40px 20px; text-align: center; transition: 0.3s; }
+        .footer-card:hover { transform: translateY(-5px); border-color: var(--brand-blue); }
+        .f-icon { font-size: 24px; margin-bottom: 15px; }
+        .f-title { font-size: 0.9rem; color: #888; text-transform: uppercase; margin-bottom: 8px; }
+        .f-content { color: var(--brand-blue); font-size: 1.1rem; }
+        .footer-bottom-bar { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #1a1a1a; padding-top: 30px; color: #555; }
+
+        /* 灯箱 */
+        #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 10000; display: none; justify-content: center; align-items: center; cursor: zoom-out; backdrop-filter: blur(10px); }
+        #lightbox.active { display: flex; }
+        #lightbox img { max-width: 90%; max-height: 90%; object-fit: contain; }
+
+        @media (max-width: 768px) {
+            .h-title { font-size: 2.5rem; }
+            .project-brief, .footer-contact-grid { grid-template-columns: 1fr; }
+            .matrix-masonry { column-count: 1; }
+            .thanks-text { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <a href="index.html" class="back-nav">← Back</a>
+
+    <!-- 1. Hero Section -->
+    <section class="hero-section">
+        <!-- 视频背景 -->
+        <!-- poster: 视频加载前显示的占位图地址 -->
+        <video 
+            class="hero-video" 
+            autoplay 
+            loop 
+            muted 
+            playsinline 
+            poster="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E5%8F%A3%E7%BA%A2%E9%9E%8B%E5%AD%90%E5%92%8C%E7%99%BD%E8%86%9C/%E9%9E%8B%E5%AD%90%E7%89%B9%E5%86%99ps.png"
+        >
+            <!-- source src: 视频文件的实际地址 -->
+            <source src="你的视频地址链接.mp4" type="video/mp4">
+        </video>
+
+        <div class="hero-content">
+            <div class="h-subtitle">AI & 3D Workflow</div>
+            <h1 class="h-title">Visual<span>Iterative Logic</span></h1>
+        </div>
+    </section>
+
+    <!-- 2. Brief -->
+    <section class="project-brief">
+        <div class="brief-meta">
+            <div class="meta-item"><h4>系统</h4><p>LLM驱动视觉生成</p></div>
+            <div class="meta-item"><h4>技术栈</h4><p>Gemini/即梦/ComfyUI</p></div>
+            <div class="meta-item"><h4>核心</h4><p>快速创意迭代</p></div>
+        </div>
+        <div class="brief-text">
+            本项目展示了如何将 3D 原始资产与 LLM 语义逻辑深度结合。通过 ComfyUI 搭建的稳定工作流，我能够将单一的 3D 白模或渲染图，转化为一系列具有高度品牌一致性、跨场景的营销素材。这种方法论极大缩短了商业摄影的沟通成本，实现了从几何到意境的跨越。
+        </div>
+    </section>
+
+    <!-- 3. Footwear Section -->
+    <div class="content-section">
+        <div class="section-header"><h2>01. Footwear Evolution</h2></div>
+
+        <div class="interactive-card">
+            <img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E5%8F%A3%E7%BA%A2%E9%9E%8B%E5%AD%90%E5%92%8C%E7%99%BD%E8%86%9C/%E9%9E%8B%E5%AD%90-%E6%9D%90%E8%B4%A8.png" class="slider-img bottom-layer">
+            <div class="top-layer-wrapper">
+                <img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E5%8F%A3%E7%BA%A2%E9%9E%8B%E5%AD%90%E5%92%8C%E7%99%BD%E8%86%9C/%E9%9E%8B%E5%AD%90.png" class="slider-img top-layer">
+            </div>
+            <div class="slider-handle"><div class="slider-btn">↔</div></div>
+        </div>
+
+        <div class="matrix-masonry">
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E9%9E%8B%E5%AD%90/ComfyUI_00292_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>核心卖点矩阵</h3></div></div>
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E9%9E%8B%E5%AD%90/ComfyUI_00295_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>精工材质细节</h3></div></div>
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E9%9E%8B%E5%AD%90/ComfyUI_00290_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>户外极端场景</h3></div></div>
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E9%9E%8B%E5%AD%90/ComfyUI_00305_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>模特交互展示</h3></div></div>
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E9%9E%8B%E5%AD%90/ComfyUI_00291_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>户外极端场景</h3></div></div>
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E9%9E%8B%E5%AD%90/ComfyUI_00301_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>氛围意境表现</h3></div></div>
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E9%9E%8B%E5%AD%90/ComfyUI_00293_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>核心卖点矩阵</h3></div></div>
+        </div>
+    </div>
+
+    <!-- 4. Lipsticks Section -->
+    <div class="content-section">
+        <div class="section-header"><h2>02. Lipsticks Aesthetic</h2></div>
+
+        <div class="interactive-card">
+            <img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E5%8F%A3%E7%BA%A2%E9%9E%8B%E5%AD%90%E5%92%8C%E7%99%BD%E8%86%9C/ComfyUI_00176_.png" class="slider-img bottom-layer">
+            <div class="top-layer-wrapper">
+                <img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E5%8F%A3%E7%BA%A2%E9%9E%8B%E5%AD%90%E5%92%8C%E7%99%BD%E8%86%9C/%E5%8F%A3%E7%BA%A2-1.png" class="slider-img top-layer">
+            </div>
+            <div class="slider-handle"><div class="slider-btn">↔</div></div>
+        </div>
+
+        <div class="matrix-masonry">
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E5%94%87%E8%86%8F/ComfyUI_00350_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>品牌氛围渲染</h3></div></div>
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E5%94%87%E8%86%8F/ComfyUI_00355_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>模特交互展示</h3></div></div>
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E5%94%87%E8%86%8F/ComfyUI_00326_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>家居场景</h3></div></div>
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E5%94%87%E8%86%8F/ComfyUI_00336_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>社交场景</h3></div></div>
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E5%94%87%E8%86%8F/ComfyUI_00349_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>模特交互展示</h3></div></div>
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E5%94%87%E8%86%8F/ComfyUI_00343_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>礼赠展示</h3></div></div>
+            <div class="matrix-item"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E5%94%87%E8%86%8F/ComfyUI_00357_.png" class="matrix-img" onclick="openLightbox(this.src)"><div class="matrix-info"><h3>场景氛围渲染</h3></div></div>
+        </div>
+    </div>
+
+    <!-- 5. Others Section -->
+    <div class="content-section">
+        <div class="section-header"><h2>03. Others Concepts</h2></div>
+        <div class="others-masonry">
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00203_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00209_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00210_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00217_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00219_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00222_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00225_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00227_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00230_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00233_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00234_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00237_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00250_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00274_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00275_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00277_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00278_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00282_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00285_.png" onclick="openLightbox(this.src)"></div>
+            <div class="other-card"><img src="https://oc-1394029799.cos.ap-guangzhou.myqcloud.com/%E4%B8%83%E4%B8%83%E5%85%AB%E5%85%AB/ComfyUI_00288_.png" onclick="openLightbox(this.src)"></div>
+        </div>
+    </div>
+
+    <!-- 感谢语 -->
+    <section class="thanks-section">
+        <h2 class="thanks-text">感谢您的耐心浏览！</h2>
+    </section>
+
+    <!-- 下一页跳转 -->
+    <a href="logitech-keyboard.html" class="next-project-banner">
+        <div class="next-bg"></div>
+        <div class="next-content">
+            <div class="next-label">Next Project</div>
+            <div class="next-title">罗技无线键盘 <span>→</span></div>
+        </div>
+    </a>
+
+    <!-- 页脚 -->
+    <footer>
+        <div class="footer-cta">
+            <h2>让我们共创精彩</h2>
+            <p>我始终乐于讨论新项目、创意想法或参与您愿景的机会。</p>
+        </div>
+        <div class="footer-contact-grid">
+            <div class="footer-card"><div class="f-icon">✉️</div><div class="f-title">邮箱</div><a href="mailto:1195821502@qq.com" class="f-content">1195821502@qq.com</a></div>
+            <div class="footer-card"><div class="f-icon">📍</div><div class="f-title">位置</div><div class="f-content" style="color:#888">广东 广州</div></div>
+            <div class="footer-card"><div class="f-icon">📞</div><div class="f-title">电话</div><a href="tel:18927364026" class="f-content">18927364026</a></div>
+        </div>
+        <div class="footer-bottom-bar">
+            <div>© 2025 AI Visual Iteration. 保留所有权利。</div>
+            <div style="color: #fff;">DESIGNED BY YOURNAME</div>
+        </div>
+    </footer>
+
+    <!-- 灯箱 -->
+    <div id="lightbox" onclick="this.classList.remove('active')">
+        <img id="lightbox-img" src="">
+    </div>
+
+    <script>
+        // 初始化滑动组件
+        function initComparisons() {
+            document.querySelectorAll('.interactive-card').forEach(card => {
+                const wrapper = card.querySelector('.top-layer-wrapper');
+                const handle = card.querySelector('.slider-handle');
+                const topImg = card.querySelector('.top-layer');
+                const bottomImg = card.querySelector('.bottom-layer');
+
+                const syncSize = () => {
+                    topImg.style.width = card.offsetWidth + 'px';
+                    topImg.style.height = card.offsetHeight + 'px';
+                };
+                if (bottomImg.complete) syncSize();
+                else bottomImg.onload = syncSize;
+                window.addEventListener('resize', syncSize);
+
+                let isDown = false;
+                const move = (e) => {
+                    if(!isDown) return;
+                    wrapper.classList.add('dragging');
+                    handle.classList.add('dragging');
+                    let rect = card.getBoundingClientRect();
+                    let x = (e.pageX || e.touches[0].pageX) - rect.left - window.scrollX;
+                    let p = Math.max(0, Math.min(100, (x / rect.width) * 100));
+                    wrapper.style.width = p + '%';
+                    handle.style.left = p + '%';
+                };
+
+                card.addEventListener('mousedown', () => isDown = true);
+                window.addEventListener('mouseup', () => { isDown = false; wrapper.classList.remove('dragging'); handle.classList.remove('dragging'); });
+                card.addEventListener('mousemove', move);
+                card.addEventListener('touchstart', () => isDown = true);
+                card.addEventListener('touchmove', move);
+            });
+        }
+
+        // 自动滑动逻辑
+        const autoSlideObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const wrapper = entry.target.querySelector('.top-layer-wrapper');
+                    const handle = entry.target.querySelector('.slider-handle');
+                    setTimeout(() => {
+                        wrapper.style.width = '30%';
+                        handle.style.left = '30%';
+                        setTimeout(() => { 
+                            wrapper.style.width = '70%'; 
+                            handle.style.left = '70%';
+                        }, 800);
+                    }, 300);
+                    autoSlideObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initComparisons();
+            document.querySelectorAll('.interactive-card').forEach(card => autoSlideObserver.observe(card));
+        });
+
+        // 灯箱
+        function openLightbox(src) {
+            document.getElementById('lightbox-img').src = src;
+            document.getElementById('lightbox').classList.add('active');
+        }
+    </script>
+</body>
+</html>
